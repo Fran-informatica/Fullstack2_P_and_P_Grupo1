@@ -1,7 +1,7 @@
 import { listarMisCompras, registrarCompra } from '../data/compras';
 import { autenticarUsuario, cerrarSesion, registrarUsuario } from '../data/usuarios';
 import { crearCompra, formatearNumeroBoleta, generarBoletaTexto } from '../utils/boleta';
-import { TOKEN_MOCK, USUARIO_MOCK, simularApi } from './helpers';
+import { TOKEN_MOCK, USUARIO_MOCK, llamada, simularApi } from './helpers';
 
 const ITEMS = [
   { id: 1, title: 'Global Warning', price: 15990, quantity: 2 },
@@ -28,15 +28,15 @@ describe('Compras, boletas y usuarios', () => {
   });
 
   it('registra la compra enviando solo id y cantidad, con el token de la sesión', async () => {
-    const fetch = simularApi((metodo, ruta, cuerpo) => [201, { numero: 1, items: cuerpo.items }]);
+    const api = simularApi((metodo, ruta, cuerpo) => [201, { numero: 1, items: cuerpo.items }]);
     const compra = await registrarCompra(TOKEN_MOCK, ITEMS);
     expect(compra.numero).toBe(1);
-    const [url, opciones] = fetch.calls.mostRecent().args;
+    const { url, metodo, headers, cuerpo } = llamada(api);
     expect(url).toBe('/api/compras');
-    expect(opciones.method).toBe('POST');
-    expect(opciones.headers.Authorization).toBe(`Bearer ${TOKEN_MOCK}`);
+    expect(metodo).toBe('POST');
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN_MOCK}`);
     // El precio no viaja: lo calcula la API con los datos de PostgreSQL
-    expect(JSON.parse(opciones.body)).toEqual({ items: [{ id: 1, quantity: 2 }, { id: 3, quantity: 1 }] });
+    expect(cuerpo).toEqual({ items: [{ id: 1, quantity: 2 }, { id: 3, quantity: 1 }] });
   });
 
   it('lista las compras de la sesión y rechaza si el token no es válido', async () => {
@@ -60,7 +60,7 @@ describe('Compras, boletas y usuarios', () => {
   });
 
   it('inicia sesión recibiendo el token, informa credenciales incorrectas y cierra la sesión', async () => {
-    const fetch = simularApi((metodo, ruta, cuerpo) => {
+    const api = simularApi((metodo, ruta, cuerpo) => {
       if (metodo === 'DELETE') return [204];
       return cuerpo.password === 'Secreta123'
         ? [201, { usuario: USUARIO_MOCK, token: TOKEN_MOCK }]
@@ -69,7 +69,7 @@ describe('Compras, boletas y usuarios', () => {
     expect(await autenticarUsuario('ana@duoc.cl', 'Secreta123')).toEqual({ ok: true, usuario: USUARIO_MOCK, token: TOKEN_MOCK });
     expect(await autenticarUsuario('ana@duoc.cl', 'Otra1234')).toEqual({ ok: false, error: 'Correo o contraseña incorrectos.' });
     await cerrarSesion(TOKEN_MOCK);
-    const [url, opciones] = fetch.calls.mostRecent().args;
-    expect([url, opciones.method, opciones.headers.Authorization]).toEqual(['/api/sesiones', 'DELETE', `Bearer ${TOKEN_MOCK}`]);
+    const { url, metodo, headers } = llamada(api);
+    expect([url, metodo, headers.Authorization]).toEqual(['/api/sesiones', 'DELETE', `Bearer ${TOKEN_MOCK}`]);
   });
 });
