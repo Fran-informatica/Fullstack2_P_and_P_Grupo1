@@ -1,9 +1,11 @@
 // Utilidades compartidas por las pruebas: proveedores, mocks y datos de ejemplo.
 import { render } from '@testing-library/react';
+import { AxiosError } from 'axios';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 import { AuthContext } from '../context/AuthContext';
 import { CartProvider } from '../context/CartContext';
+import { cliente } from '../data/api';
 import { PRODUCTOS_INICIALES } from '../data/productosIniciales';
 import { crearCompra } from '../utils/boleta';
 
@@ -64,18 +66,43 @@ export function limpiarAlmacenamiento() {
   window.sessionStorage.clear();
 }
 
-// Reemplaza window.fetch por un espía de Jasmine (se restaura solo al terminar cada prueba).
+// El adaptador recibe la configuración ya procesada por axios: método en minúsculas y cuerpo como texto JSON
+function leerConfig(config) {
+  return {
+    url: `${config.baseURL}${config.url}`,
+    metodo: config.method.toUpperCase(),
+    headers: config.headers,
+    cuerpo: config.data ? JSON.parse(config.data) : undefined,
+  };
+}
+
+// Datos de una petición registrada por el espía de simularApi (por defecto, la última)
+export function llamada(espia, n = espia.calls.count() - 1) {
+  return leerConfig(espia.calls.argsFor(n)[0]);
+}
+
+// Reemplaza el adaptador de axios por un espía de Jasmine (se restaura solo al terminar cada prueba).
 // responder(metodo, ruta, cuerpo, headers) devuelve [estado, datos]; la ruta llega sin el prefijo /api.
 export function simularApi(responder) {
-  return spyOn(window, 'fetch').and.callFake(async (url, opciones = {}) => {
-    const metodo = opciones.method ?? 'GET';
-    const cuerpo = opciones.body ? JSON.parse(opciones.body) : undefined;
-    const [estado, datos] = await responder(metodo, url.replace(/^\/api/, ''), cuerpo, opciones.headers ?? {});
-    return new Response(estado === 204 ? null : JSON.stringify(datos), {
+  return spyOn(cliente.defaults, 'adapter').and.callFake(async (config) => {
+    const { metodo, headers, cuerpo } = leerConfig(config);
+    const [estado, datos] = await responder(metodo, config.url, cuerpo, headers);
+    const respuesta = {
+      data: estado === 204 ? '' : JSON.stringify(datos),
       status: estado,
-      headers: { 'Content-Type': 'application/json' },
-    });
+      statusText: '',
+      headers: { 'content-type': 'application/json' },
+      config,
+    };
+    // Un adaptador propio debe rechazar las respuestas de error, igual que el adaptador real de axios
+    if (config.validateStatus(estado)) return respuesta;
+    throw new AxiosError(`Request failed with status code ${estado}`, AxiosError.ERR_BAD_RESPONSE, config, null, respuesta);
   });
+}
+
+// Simula que el servidor no responde: axios rechaza sin respuesta
+export function simularSinConexion() {
+  return spyOn(cliente.defaults, 'adapter').and.rejectWith(new AxiosError('Network Error', AxiosError.ERR_NETWORK));
 }
 
 // API de la tienda en memoria: catálogo inicial y compras del usuario con TOKEN_MOCK

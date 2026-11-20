@@ -18,6 +18,7 @@ El repositorio tiene dos proyectos independientes, cada uno con su propio `packa
 |---|---|
 | Framework de frontend | React 19 + Vite |
 | Navegación | React Router 7 |
+| Peticiones HTTP a la API | Axios |
 | Diseño responsivo | Bootstrap 5 + React Bootstrap |
 | API (backend) | Express 5 sobre Node.js |
 | Base de datos | PostgreSQL, con el cliente `pg` |
@@ -43,6 +44,7 @@ Versiones principales (las exactas quedan fijadas en el `package-lock.json` de c
 | React / React DOM | 19.3 | `web/` |
 | Vite / @vitejs/plugin-react | 7.3 / 5.2 | `web/` |
 | React Router DOM | 7.18 | `web/` |
+| Axios | 1.21 | `web/` |
 | Bootstrap / React Bootstrap | 5.3 / 2.10 | `web/` |
 | Karma | 6.4 | `web/` |
 | Jasmine (`jasmine-core` / `karma-jasmine`) | 4.6 / 5.1 | `web/` |
@@ -130,7 +132,7 @@ npm run test:ci
 
 Ejecuta una sola vez sin ventana (headless) y muestra el resumen en la terminal. En ambos casos el reporte de cobertura queda en `web/coverage/index.html`.
 
-Las pruebas no necesitan la API ni PostgreSQL: `fetch` se reemplaza por un espía de Jasmine (`simularApi` y `simularApiTienda` en `web/src/tests/helpers.jsx`) que responde como la API.
+Las pruebas no necesitan la API ni PostgreSQL: el adaptador de axios se reemplaza por un espía de Jasmine (`simularApi` y `simularApiTienda` en `web/src/tests/helpers.jsx`) que responde como la API.
 
 ### Elegir el navegador
 
@@ -176,7 +178,7 @@ web/
 │   ├── components/        Navbar, Footer, ProductCard, ProductGrid, Filters, Carousel, CartToast,
 │   │                      EstadoCarga, CartIcon y UserIcon
 │   ├── context/           CartContext (carrito) y AuthContext (sesión)
-│   ├── data/              Acceso a la API con fetch (api.js) y funciones de productos, usuarios y compras
+│   ├── data/              Acceso a la API con axios (api.js) y funciones de productos, usuarios y compras
 │   ├── hooks/             useCarga: estado de carga y error de las peticiones
 │   ├── pages/             Home, Products, ProductDetail, Cart, Contact, Login, Register, Profile, NotFound
 │   ├── utils/             Funciones puras: carrito, boleta y validaciones

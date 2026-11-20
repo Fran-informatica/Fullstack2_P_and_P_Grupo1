@@ -14,9 +14,11 @@ import {
   USUARIO_MOCK,
   crearAuthMock,
   limpiarAlmacenamiento,
+  llamada,
   renderizar,
   simularApi,
   simularApiTienda,
+  simularSinConexion,
 } from './helpers';
 
 const ITEM = { id: 1, title: 'Global Warning', price: 15990, image: '/assets/img/JuegoTabla3.jpg', quantity: 1 };
@@ -76,7 +78,7 @@ describe('Catálogo y detalle', () => {
 
 describe('Errores de conexión con la API', () => {
   it('muestra el mensaje de error si el servidor no responde', async () => {
-    spyOn(window, 'fetch').and.rejectWith(new TypeError('Failed to fetch'));
+    simularSinConexion();
     renderizar(<Products />);
     expect(await screen.findByText('No se pudo conectar con el servidor. Intenta nuevamente.')).toBeTruthy();
     expect(screen.queryAllByRole('heading', { level: 3 }).length).toBe(0);
@@ -110,7 +112,7 @@ describe('Carrito', () => {
   });
 
   it('con sesión envía la compra a la API, vacía el carrito y redirige al perfil', async () => {
-    const fetch = simularApiTienda();
+    const api = simularApiTienda();
     renderizar(<Cart />, {
       auth: crearAuthMock({ usuario: USUARIO_MOCK, token: TOKEN_MOCK }),
       carrito: [ITEM],
@@ -119,9 +121,9 @@ describe('Carrito', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Comprar' }));
     expect((await screen.findByTestId('ubicacion')).textContent).toBe('/perfil');
-    const [url, opciones] = fetch.calls.mostRecent().args;
-    expect([url, opciones.method]).toEqual(['/api/compras', 'POST']);
-    expect(JSON.parse(opciones.body)).toEqual({ items: [{ id: 1, quantity: 1 }] });
+    const { url, metodo, cuerpo } = llamada(api);
+    expect([url, metodo]).toEqual(['/api/compras', 'POST']);
+    expect(cuerpo).toEqual({ items: [{ id: 1, quantity: 1 }] });
   });
 
   it('si la API rechaza la compra muestra el error y conserva el carrito', async () => {
@@ -142,10 +144,10 @@ describe('Perfil', () => {
 
   it('con sesión muestra las boletas que devuelve la API para ese token', async () => {
     const compra = crearCompra({ numero: 1, fecha: new Date(), usuario: USUARIO_MOCK, items: [ITEM] });
-    const fetch = simularApiTienda({ compras: [compra] });
+    const api = simularApiTienda({ compras: [compra] });
     renderizar(<Profile />, { auth: crearAuthMock({ usuario: USUARIO_MOCK, token: TOKEN_MOCK }) });
     expect(await screen.findByLabelText('Boleta N° 000001')).toBeTruthy();
-    expect(fetch.calls.mostRecent().args[1].headers.Authorization).toBe(`Bearer ${TOKEN_MOCK}`);
+    expect(llamada(api).headers.Authorization).toBe(`Bearer ${TOKEN_MOCK}`);
   });
 });
 
@@ -166,7 +168,7 @@ describe('AuthProvider (integración con la API simulada y sessionStorage)', () 
   };
 
   it('inicia sesión guardando el token en sessionStorage y la cierra avisando a la API', async () => {
-    const fetch = simularApi((metodo, ruta) => {
+    const api = simularApi((metodo, ruta) => {
       if (ruta === '/sesiones' && metodo === 'POST') return [201, { usuario: { nombre: 'Ana', email: 'ana@duoc.cl' }, token: TOKEN_MOCK }];
       if (ruta === '/sesiones' && metodo === 'DELETE') return [204];
       return [404, { error: 'Ruta no encontrada.' }];
@@ -185,8 +187,8 @@ describe('AuthProvider (integración con la API simulada y sessionStorage)', () 
     expect(screen.getByTestId('usuario').textContent).toBe('sin sesión');
     expect(sessionStorage.getItem('sesionActiva')).toBeNull();
     await waitFor(() => {
-      if (fetch.calls.count() < 2) throw new Error('Aún no se llama a DELETE /api/sesiones');
+      if (api.calls.count() < 2) throw new Error('Aún no se llama a DELETE /api/sesiones');
     });
-    expect(fetch.calls.mostRecent().args[1].method).toBe('DELETE');
+    expect(llamada(api).metodo).toBe('DELETE');
   });
 });
