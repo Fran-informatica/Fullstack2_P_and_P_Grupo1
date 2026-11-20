@@ -33,7 +33,7 @@ El repositorio tiene dos proyectos independientes, cada uno con su propio `packa
 | Node.js | **20.19 o superior** (en la rama 20), o **22.12 o superior** | Mínimo que exige Vite 7. Se probó con Node 24.22 |
 | npm | 10 o superior | Viene incluido con Node.js. Se probó con npm 11.19 |
 | PostgreSQL | 14 o superior | Base de datos de productos, usuarios y compras. Se probó con PostgreSQL 18 |
-| Navegador para las pruebas | Una versión actual de Chrome, Chromium (incluido Ungoogled Chromium) o Firefox | Karma ejecuta las pruebas en un navegador real. Se probó con Chrome 157 |
+| Navegador para las pruebas | Una versión actual de Chrome, Chromium (incluido Ungoogled Chromium) o Firefox | Karma ejecuta las pruebas en un navegador real. Se probó con Chrome 157 y Firefox 159 |
 | Git | Cualquier versión reciente | Solo para clonar el repositorio |
 
 Versiones principales (las exactas quedan fijadas en el `package-lock.json` de cada carpeta):
@@ -132,7 +132,7 @@ npm run test:ci
 
 Ejecuta una sola vez sin ventana (headless) y muestra el resumen en la terminal. En ambos casos el reporte de cobertura queda en `web/coverage/index.html`.
 
-Las pruebas no necesitan la API ni PostgreSQL: el adaptador de axios se reemplaza por un espía de Jasmine (`simularApi` y `simularApiTienda` en `web/src/tests/helpers.jsx`) que responde como la API.
+Las pruebas no necesitan la API ni PostgreSQL: el adaptador de axios se reemplaza por un espía de Jasmine (`simularApi`, `simularApiTienda` y `simularSinConexion` en `web/src/tests/helpers.jsx`) que responde como la API. `llamada(espia)` devuelve la URL, el método, los encabezados y el cuerpo de la petición registrada.
 
 ### Elegir el navegador
 
@@ -218,6 +218,12 @@ web/
 | `POST /api/compras` | Comprar el carrito (`{ items: [{ id, quantity }] }`) | Token de sesión |
 
 Los tokens se envían en el encabezado `Authorization: Bearer <token>`.
+
+### Comunicación entre la página y la API
+
+- Todas las peticiones salen de `web/src/data/api.js`: una instancia de axios con `baseURL: '/api'` y la función `pedir()`. Las respuestas con error (4xx y 5xx) y la falta de conexión se convierten en `ErrorApi`, con el estado HTTP (`0` si no hubo respuesta) y el mensaje de la API.
+- La página llama a `/api` en su mismo origen y Vite reenvía esas peticiones a la API (`server.proxy` en `web/vite.config.js`). Por eso la API no necesita CORS.
+- Ese reenvío existe solo con `npm run dev` y `npm run preview`. Para publicar `web/dist/`, el servidor que la sirva (por ejemplo, Nginx) debe reenviar `/api` a la API; si la página y la API quedan en dominios distintos, hay que habilitar CORS en Express.
 
 - La API calcula precios y totales con los datos de la base; no acepta precios enviados desde el navegador.
 - Las compras siempre quedan a nombre del usuario del token.
